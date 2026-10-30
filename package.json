@@ -1,0 +1,19 @@
+{
+  "name": "nutrient-document-generation-poc",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Document generation PoC involving Document Authoring by Nutrient.io",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "samples": "node scripts/make-sample-csv.mjs"
+  },
+  "dependencies": {
+    "@nutrient-sdk/document-authoring": "^1.11.0",
+    "docx": "^9.6.1",
+    "jszip": "^3.10.1",
+    "vite": "^6.4.1"
+  }
+}

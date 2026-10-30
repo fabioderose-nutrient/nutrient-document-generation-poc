@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nutrient Document Generation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --app-blue: #2563EB; --app-blue-dark: #1D4ED8; --app-blue-light: #EFF6FF;
+      --app-navy: #1F2937; --app-gray-50: #F8F9FA; --app-gray-100: #F1F3F5;
+      --app-gray-200: #E9ECEF; --app-gray-300: #DEE2E6; --app-gray-500: #868E96;
+      --app-gray-700: #495057; --app-gray-900: #212529;
+      --app-radius: 6px; --app-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; font-family: var(--app-font); background: var(--app-gray-50); }
+    #brand-bar { display: flex; align-items: center; height: 48px; padding: 0 20px; background: var(--app-navy); color: #fff; }
+    #brand-bar .brand-left { display: flex; align-items: center; gap: 12px; }
+    #brand-bar .brand-logo { font-weight: 700; font-size: 16px; }
+    #brand-bar .brand-logo span { color: var(--app-blue); }
+    #brand-bar .brand-divider { width: 1px; height: 20px; background: rgba(255,255,255,0.2); }
+    #brand-bar .brand-subtitle { font-size: 13px; color: rgba(255,255,255,0.7); }
+    #editor { position: relative; width: 100%; height: calc(100vh - 48px); }
+
+    .panel-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); z-index: 9998; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+    .panel-overlay.open { opacity: 1; pointer-events: auto; }
+    .slide-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 320px; background: #fff; z-index: 9999; box-shadow: -4px 0 24px rgba(0,0,0,0.12); transform: translateX(100%); transition: transform 0.25s; display: flex; flex-direction: column; font-family: var(--app-font); }
+    .slide-panel.open { transform: translateX(0); }
+    .slide-panel .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--app-gray-200); }
+    .slide-panel .panel-header h2 { font-size: 16px; font-weight: 600; }
+    .slide-panel .panel-close { width: 32px; height: 32px; border: none; background: none; cursor: pointer; border-radius: var(--app-radius); display: flex; align-items: center; justify-content: center; color: var(--app-gray-500); }
+    .slide-panel .panel-close:hover { background: var(--app-gray-100); }
+    .samples-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .sample-item { padding: 12px 20px; cursor: pointer; font-size: 14px; color: var(--app-gray-900); display: flex; align-items: center; gap: 12px; transition: background 0.12s; }
+    .sample-item:hover { background: var(--app-blue-light); }
+    .sample-item .item-icon { width: 36px; height: 36px; border-radius: 6px; background: var(--app-blue-light); display: flex; align-items: center; justify-content: center; }
+    .sample-item .item-icon svg { width: 18px; height: 18px; color: var(--app-blue); }
+    .sample-item .item-label { font-weight: 500; }
+
+    /* Table modal */
+    #table-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 10001; display: none; align-items: center; justify-content: center; font-family: var(--app-font); }
+    #table-modal-overlay.open { display: flex; }
+    #table-modal { background: #fff; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.2); width: 600px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; }
+    #table-modal .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--app-gray-200); }
+    #table-modal .modal-header h2 { font-size: 17px; font-weight: 600; }
+    #table-modal .modal-close { width: 32px; height: 32px; border: none; background: none; cursor: pointer; border-radius: var(--app-radius); display: flex; align-items: center; justify-content: center; color: var(--app-gray-500); }
+    #table-modal .modal-close:hover { background: var(--app-gray-100); }
+    #table-modal .modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+    #table-modal .modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--app-gray-200); }
+    .form-group { margin-bottom: 18px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--app-gray-700); margin-bottom: 6px; }
+    .form-group .hint { font-size: 12px; color: var(--app-gray-500); margin-top: 4px; }
+    .btn { padding: 8px 18px; border-radius: var(--app-radius); font-size: 13px; font-weight: 600; font-family: var(--app-font); cursor: pointer; border: none; }
+    .btn-primary { background: var(--app-blue); color: #fff; }
+    .btn-primary:hover { background: var(--app-blue-dark); }
+    .btn-secondary { background: #fff; color: var(--app-gray-700); border: 1px solid var(--app-gray-300); }
+    .btn-secondary:hover { background: var(--app-gray-100); }
+    #columns-config { display: flex; gap: 10px; flex-wrap: wrap; }
+    .col-card { flex: 1; min-width: 100px; border: 1px solid var(--app-gray-200); border-radius: 8px; padding: 12px; background: var(--app-gray-50); text-align: center; }
+    .col-card .col-title { font-size: 12px; font-weight: 600; color: var(--app-gray-500); text-transform: uppercase; margin-bottom: 4px; }
+    .col-card .col-heading-input { width: 100%; border: 1px solid var(--app-gray-300); border-radius: 4px; padding: 4px 6px; font-size: 12px; font-family: var(--app-font); text-align: center; margin-bottom: 8px; }
+    .col-card .col-heading-input:focus { outline: none; border-color: var(--app-blue); box-shadow: 0 0 0 2px rgba(37,99,235,0.15); }
+    .col-card .row-controls { display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .col-card .row-controls button { width: 28px; height: 28px; border: 1px solid var(--app-gray-300); border-radius: 6px; background: #fff; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+    .col-card .row-controls button:hover { border-color: var(--app-blue); color: var(--app-blue); background: var(--app-blue-light); }
+    .col-card .row-count { font-size: 20px; font-weight: 700; min-width: 24px; }
+    .col-card .row-label { font-size: 11px; color: var(--app-gray-500); margin-top: 2px; }
+    .col-count-control { display: flex; align-items: center; gap: 12px; }
+    .col-count-control button { width: 32px; height: 32px; border: 1px solid var(--app-gray-300); border-radius: 6px; background: #fff; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+    .col-count-control button:hover { border-color: var(--app-blue); color: var(--app-blue); background: var(--app-blue-light); }
+    .col-count-control .col-count-value { font-size: 22px; font-weight: 700; min-width: 28px; text-align: center; }
+    .row-heights-list { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+    .row-height-row { display: flex; align-items: center; gap: 4px; justify-content: center; }
+    .row-height-label { font-size: 10px; font-weight: 600; color: var(--app-gray-500); width: 20px; text-align: right; }
+    .row-height-input { width: 48px; border: 1px solid var(--app-gray-300); border-radius: 4px; padding: 2px 4px; font-size: 11px; font-family: var(--app-font); text-align: center; }
+    .row-height-input:focus { outline: none; border-color: var(--app-blue); box-shadow: 0 0 0 2px rgba(37,99,235,0.15); }
+    .row-height-unit { font-size: 10px; color: var(--app-gray-500); }
+
+    /* Preview (flexbox) */
+    #table-preview { border: 1px solid var(--app-gray-200); border-radius: 8px; overflow: hidden; margin-top: 8px; }
+    .preview-grid { display: flex; align-items: flex-start; border-radius: 4px; overflow: hidden; }
+    .preview-col { flex: 1; display: flex; flex-direction: column; border: 1px solid var(--app-gray-300); border-right: none; }
+    .preview-col:last-child { border-right: 1px solid var(--app-gray-300); }
+    .preview-col-header { padding: 5px 8px; font-size: 11px; font-weight: 600; color: var(--app-navy); text-align: center; border-bottom: 1px solid var(--app-gray-300); }
+    .preview-col-row { display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--app-gray-500); border-bottom: 1px solid var(--app-gray-200); box-sizing: border-box; }
+    .preview-col-row.last { border-bottom: none; }
+
+    /* Merge modal */
+    .merge-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 10001; display: flex; align-items: center; justify-content: center; font-family: var(--app-font); }
+    .merge-modal { background: #fff; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.2); width: 500px; max-height: 80vh; overflow-y: auto; }
+    .merge-modal-header { padding: 18px 24px; border-bottom: 1px solid var(--app-gray-200); }
+    .merge-modal-header h3 { font-size: 16px; font-weight: 600; margin: 0 0 4px; }
+    .merge-modal-header p { font-size: 12px; color: var(--app-gray-500); margin: 0; }
+    .merge-grid { display: flex; align-items: flex-start; padding: 20px 24px; gap: 0; }
+    .merge-col { flex: 1; display: flex; flex-direction: column; border: 1px solid var(--app-gray-300); border-right: none; }
+    .merge-col:last-child { border-right: 1px solid var(--app-gray-300); }
+    .merge-col-header { padding: 6px 8px; font-size: 11px; font-weight: 600; color: var(--app-navy); text-align: center; border-bottom: 1px solid var(--app-gray-300); background: var(--app-gray-50); }
+    .merge-cell { display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--app-gray-500); border-bottom: 1px solid var(--app-gray-200); cursor: pointer; transition: background 0.12s; box-sizing: border-box; }
+    .merge-cell:last-child { border-bottom: none; }
+    .merge-cell:hover { background: var(--app-blue-light); }
+    .merge-cell-selected { background: var(--app-blue) !important; color: #fff !important; }
+    .merge-cell-candidate { background: #F5F9FF; }
+    .merge-modal-footer { padding: 14px 24px; border-top: 1px solid var(--app-gray-200); display: flex; justify-content: flex-end; gap: 8px; }
+
+    /* Borders editor */
+    .borders-grid {
+      display: flex; align-items: flex-start;
+    }
+    .borders-col {
+      flex: 1; display: flex; flex-direction: column;
+    }
+    .borders-cell-header {
+      padding: 4px 8px; font-size: 11px; font-weight: 600; color: var(--app-navy);
+      text-align: center; margin-bottom: 4px;
+    }
+    .borders-cell {
+      position: relative; margin: 0; box-sizing: border-box;
+      background: #FAFAFA;
+    }
+    .borders-edge {
+      position: absolute; z-index: 1; cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .borders-edge-top {
+      top: 0; left: 4px; right: 4px; height: 4px;
+      background: #333;
+    }
+    .borders-edge-bottom {
+      bottom: 0; left: 4px; right: 4px; height: 4px;
+      background: #333;
+    }
+    .borders-edge-left {
+      top: 4px; bottom: 4px; left: 0; width: 4px;
+      background: #333;
+    }
+    .borders-edge-right {
+      top: 4px; bottom: 4px; right: 0; width: 4px;
+      background: #333;
+    }
+    .borders-edge:hover {
+      background: var(--app-blue) !important;
+    }
+    .borders-edge.off {
+      background: #E0E0E0;
+      opacity: 0.4;
+    }
+
+    /* Colors modal */
+    .colors-cell-active {
+      outline: 2px solid var(--app-blue) !important;
+      outline-offset: -2px;
+      z-index: 1;
+      position: relative;
+    }
+    .colors-palette {
+      width: 180px; display: flex; flex-wrap: wrap; gap: 4px;
+      align-content: flex-start;
+    }
+    .colors-swatch {
+      width: 22px; height: 22px; border-radius: 3px; cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .colors-swatch:hover { transform: scale(1.2); }
+
+    /* Loading */
+    #loading-screen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--app-gray-50); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 10000; transition: opacity 0.3s; }
+    #loading-screen.fade-out { opacity: 0; pointer-events: none; }
+    .loader { width: 36px; height: 36px; border: 3px solid var(--app-gray-200); border-top-color: var(--app-blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading-screen p { font-size: 14px; color: var(--app-gray-500); font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div id="loading-screen"><div class="loader"></div><p>Loading Document Editor...</p></div>
+
+  <div id="brand-bar">
+    <div class="brand-left">
+      <div class="brand-logo">Document<span> Generation</span></div>
+      <div class="brand-divider"></div>
+      <div class="brand-subtitle">Nutrient Document Authoring: templates, data merge and PDF generation</div>
+    </div>
+  </div>
+
+  <div id="editor"></div>
+
+  <div id="samples-overlay" class="panel-overlay"></div>
+  <div id="samples-panel" class="slide-panel">
+    <div class="panel-header">
+      <h2>Samples</h2>
+      <button class="panel-close" aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="samples-list"></div>
+  </div>
+
+  <div id="table-modal-overlay">
+    <div id="table-modal">
+      <div class="modal-header">
+        <h2>Custom Table</h2>
+        <button class="modal-close" aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group"><label>Columns</label>
+          <div class="col-count-control"><button id="col-minus" type="button">-</button><span id="col-count-value" class="col-count-value">3</span><button id="col-plus" type="button">+</button></div>
+        </div>
+        <div class="form-group"><label>Rows per column</label><p class="hint">Each column can have a different number of rows with different heights.</p><div id="columns-config"></div></div>
+        <div class="form-group"><label>Preview</label><div id="table-preview"></div></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="table-cancel">Cancel</button>
+        <button class="btn btn-primary" id="table-insert">Insert Table</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
